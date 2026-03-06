@@ -1,0 +1,7 @@
+builders:
+  virnavi_mcp:
+    import: "package:virnavi_ai_agent_mcp_generator/virnavi_ai_agent_mcp_generator.dart"
+    builder_factories: ["mcpBuilder"]
+    build_extensions: {".dart": [".mcp.dart"]}
+    auto_apply: dependents
+    build_to: source

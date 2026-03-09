@@ -3,7 +3,7 @@ import 'package:analyzer/dart/element/type.dart';
 import 'package:source_gen/source_gen.dart';
 import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
 
-final _mcpModelChecker = TypeChecker.fromRuntime(McpModel);
+final _mcpModelChecker = TypeChecker.typeNamed(McpModel);
 
 /// The private generated function name — accessible within the same library only.
 /// e.g. CreateTaskInput → _$CreateTaskInputToMcpSchema
@@ -37,7 +37,7 @@ String schemaExprForType(DartType type, String? description) {
 
   // @McpModel class — call the public cross-library accessor.
   if (type is InterfaceType && _mcpModelChecker.hasAnnotationOf(type.element)) {
-    return '${publicSchemaAccessorName(type.element.name)}.schema()';
+    return '${publicSchemaAccessorName(type.element.name!)}.schema()';
   }
 
   return call('ObjectSchema');
@@ -52,7 +52,8 @@ String toSnakeCase(String name) {
 
 /// Returns the simple type name suitable for use in cast expressions.
 String castTypeName(DartType type) {
-  if (type is InterfaceType) return type.element.name;
+  if (type is InterfaceType) return type.element.name!;
+  // ignore: deprecated_member_use
   return type.getDisplayString(withNullability: false);
 }
 

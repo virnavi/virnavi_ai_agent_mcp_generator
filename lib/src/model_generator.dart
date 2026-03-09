@@ -7,11 +7,12 @@ import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
 
 import 'type_utils.dart';
 
-final _mcpFieldChecker = TypeChecker.fromRuntime(McpField);
-final _jsonKeyChecker = TypeChecker.fromRuntime(JsonKey);
+final _mcpFieldChecker = TypeChecker.typeNamed(McpField);
+final _jsonKeyChecker = TypeChecker.typeNamed(JsonKey);
 
 /// Generates `ObjectSchema _$ClassNameMcpSchema()` for every class
-/// annotated with @McpModel.
+/// annotated with @McpModel, plus a public accessor class that also exposes
+/// the model's unique ID.
 class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
   const McpModelGenerator();
 
@@ -27,12 +28,16 @@ class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
         element: element,
       );
     }
-    return _generateSchema(element);
+    final packageName = buildStep.inputId.package;
+    final modelName =
+        annotation.peek('name')?.stringValue ?? element.name!;
+    final modelId = '$packageName/$modelName';
+    return _generateSchema(element, modelId);
   }
 
-  String _generateSchema(ClassElement element) {
+  String _generateSchema(ClassElement element, String modelId) {
     final fields = element.fields
-        .where((f) => !f.isStatic && !f.isSynthetic)
+        .where((f) => !f.isStatic && f.isOriginDeclaration)
         .toList();
 
     final requiredKeys = <String>[];
@@ -68,7 +73,7 @@ class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
       propertyLines.add("      '$keyName': $schema,");
     }
 
-    final className = element.name;
+    final className = element.name!;
     final privateFn = privateSchemaFnName(className);
     final accessorClass = publicSchemaAccessorName(className);
 
@@ -89,13 +94,21 @@ class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
     buf.writeln('}');
     buf.writeln('');
 
-    // Public accessor class — lets service .g.dart files (other libraries) call
-    // $ClassNameMcpX.schema() to reach the private fn without exposing it directly.
+    // Public accessor class — lets service .mcp.dart files (other libraries)
+    // call $ClassNameMcpX.schema() and read mcpModelId cross-library.
     buf.writeln('// ignore: camel_case_types');
     buf.writeln('class $accessorClass {');
+    buf.writeln("  static const String mcpModelId = '${_esc(modelId)}';");
     buf.writeln('  static ObjectSchema schema() => $privateFn();');
+    buf.writeln('  static McpModelDefinition get definition => McpModelDefinition(');
+    buf.writeln('    id: mcpModelId,');
+    buf.writeln('    schemaFactory: $accessorClass.schema,');
+    buf.writeln('    fromJson: $className.fromJson,');
+    buf.writeln('  );');
     buf.writeln('}');
 
     return buf.toString();
   }
+
+  String _esc(String s) => s.replaceAll("'", "\\'");
 }

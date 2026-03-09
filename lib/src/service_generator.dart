@@ -7,14 +7,19 @@ import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
 
 import 'type_utils.dart';
 
-final _toolChecker = TypeChecker.fromRuntime(McpTool);
-final _paramChecker = TypeChecker.fromRuntime(McpParam);
+final _toolChecker = TypeChecker.typeNamed(McpTool);
+final _paramChecker = TypeChecker.typeNamed(McpParam);
+final _mcpModelCheckerSvc = TypeChecker.typeNamed(McpModel);
 
 /// Generates a `${ClassName}McpExtension` with a `mcpTools` getter
 /// for every class annotated with @McpService.
 ///
 /// Tool names follow the pattern:
 ///   packages/{package}/mcp/{servicePath}/{toolPath}
+///
+/// When a tool method returns an @McpModel, the generated ToolDefinition
+/// includes a `resultModelId` field so McpComposeBinding can key the
+/// McpResultStore by model ID instead of tool name — enabling @McpView binding.
 class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
   const McpServiceGenerator();
 
@@ -42,7 +47,7 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
     String packageName,
     String servicePath,
   ) {
-    final className = element.name;
+    final className = element.name!;
     final toolMethods =
         element.methods.where((m) => _toolChecker.hasAnnotationOfExact(m)).toList();
 
@@ -53,14 +58,18 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
 
     for (final method in toolMethods) {
       final ann = ConstantReader(_toolChecker.firstAnnotationOfExact(method)!);
-      final toolPath = ann.peek('path')?.stringValue ?? toSnakeCase(method.name);
+      final toolPath = ann.peek('path')?.stringValue ?? toSnakeCase(method.name!);
       final description = ann.read('description').stringValue;
       final toolName = 'packages/$packageName/mcp/$servicePath/$toolPath';
+      final resultModelId = _computeResultModelId(method, packageName);
 
       buf.writeln('    ToolDefinition(');
       buf.writeln("      name: '${_esc(toolName)}',");
       buf.writeln("      description: '${_esc(description)}',");
       buf.writeln('      inputSchema: ${_inputSchema(method)},');
+      if (resultModelId != null) {
+        buf.writeln("      resultModelId: '${_esc(resultModelId)}',");
+      }
       buf.writeln('      handler: (args) async {');
       buf.writeln('        ${_handlerBody(method)}');
       buf.writeln('      },');
@@ -73,10 +82,37 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
     return buf.toString();
   }
 
+  // ── resultModelId ────────────────────────────────────────────────────────────
+
+  /// Returns `{package}/{name ?? ClassName}` when the method's effective return
+  /// type is an @McpModel class, null otherwise.
+  String? _computeResultModelId(MethodElement method, String packageName) {
+    DartType resultType = method.returnType;
+
+    // Unwrap Future<T> / FutureOr<T>.
+    if ((method.returnType.isDartAsyncFuture ||
+            method.returnType.isDartAsyncFutureOr) &&
+        method.returnType is InterfaceType &&
+        (method.returnType as InterfaceType).typeArguments.isNotEmpty) {
+      resultType = (method.returnType as InterfaceType).typeArguments.first;
+    }
+
+    if (resultType is! InterfaceType) return null;
+    if (!isMcpModel(resultType.element)) return null;
+
+    final modelAnn =
+        _mcpModelCheckerSvc.firstAnnotationOfExact(resultType.element);
+    final name = modelAnn != null
+        ? ConstantReader(modelAnn).peek('name')?.stringValue ??
+            resultType.element.name!
+        : resultType.element.name!;
+    return '$packageName/$name';
+  }
+
   // ── inputSchema ─────────────────────────────────────────────────────────────
 
   String _inputSchema(MethodElement method) {
-    final params = method.parameters;
+    final params = method.formalParameters;
 
     if (params.isEmpty) return 'ObjectSchema()';
 
@@ -86,7 +122,7 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
       if (param.type is InterfaceType) {
         final classEl = (param.type as InterfaceType).element;
         if (isMcpModel(classEl)) {
-          return '${publicSchemaAccessorName(classEl.name)}.schema()';
+          return '${publicSchemaAccessorName(classEl.name!)}.schema()';
         }
       }
     }
@@ -108,8 +144,8 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
       }
 
       final schema = schemaExprForType(param.type, description);
-      propLines.add("        '${param.name}': $schema,");
-      if (isRequired) requiredKeys.add("'${param.name}'");
+      propLines.add("        '${param.name!}': $schema,");
+      if (isRequired) requiredKeys.add("'${param.name!}'");
     }
 
     final buf = StringBuffer('ObjectSchema(\n      properties: {\n');
@@ -125,25 +161,25 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
   // ── handler body ─────────────────────────────────────────────────────────────
 
   String _handlerBody(MethodElement method) {
-    final params = method.parameters;
+    final params = method.formalParameters;
 
     String callExpr;
     if (params.isEmpty) {
-      callExpr = '${method.name}()';
+      callExpr = '${method.name!}()';
     } else if (params.length == 1) {
       final param = params.first;
       if (param.type is InterfaceType) {
         final classEl = (param.type as InterfaceType).element;
         if (isMcpModel(classEl)) {
-          callExpr = '${method.name}(${classEl.name}.fromJson(args))';
+          callExpr = '${method.name!}(${classEl.name!}.fromJson(args))';
         } else {
-          callExpr = '${method.name}(${_castArg(param)})';
+          callExpr = '${method.name!}(${_castArg(param)})';
         }
       } else {
-        callExpr = '${method.name}(${_castArg(param)})';
+        callExpr = '${method.name!}(${_castArg(param)})';
       }
     } else {
-      callExpr = '${method.name}(${params.map(_castArg).join(', ')})';
+      callExpr = '${method.name!}(${params.map(_castArg).join(', ')})';
     }
 
     final isFuture = method.returnType.isDartAsyncFuture ||
@@ -183,12 +219,12 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
     return 'final result = $awaitExpr;\n        return $resultExpr;';
   }
 
-  String _castArg(ParameterElement param) {
+  String _castArg(FormalParameterElement param) {
     final nullable = param.type.nullabilitySuffix == NullabilitySuffix.question;
     final typeName = castTypeName(param.type);
     return nullable
-        ? "args['${param.name}'] as $typeName?"
-        : "args['${param.name}'] as $typeName";
+        ? "args['${param.name!}'] as $typeName?"
+        : "args['${param.name!}'] as $typeName";
   }
 
   String _esc(String s) => s.replaceAll("'", "\\'");

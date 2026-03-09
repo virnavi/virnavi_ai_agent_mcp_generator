@@ -3,6 +3,32 @@ import 'package:build_test/build_test.dart';
 import 'package:test/test.dart';
 import 'package:virnavi_ai_agent_mcp_generator/virnavi_ai_agent_mcp_generator.dart';
 
+/// Minimal annotation stubs for the test virtual package.
+/// TypeChecker.typeNamed matches by class name only, so these work
+/// without importing virnavi_ai_agent_mcp.
+const _stubs = '''
+class McpModel { const McpModel(); }
+class McpField {
+  final String? description;
+  final bool? required;
+  const McpField({this.description, this.required});
+}
+class McpService {
+  final String path;
+  const McpService({required this.path});
+}
+class McpTool {
+  final String? path;
+  final String description;
+  const McpTool({this.path, required this.description});
+}
+class McpParam {
+  final String description;
+  final bool required;
+  const McpParam({required this.description, this.required = true});
+}
+''';
+
 void main() {
   group('McpServiceGenerator', () {
     test('generates extension with mcpTools getter', () async {
@@ -10,9 +36,9 @@ void main() {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'tasks')
 class TaskService {
@@ -20,14 +46,15 @@ class TaskService {
   Future<List<Map<String, dynamic>>> listTasks() async => [];
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart': allOf(
+          'pkg|lib/service.mcp.dart': decodedMatches(allOf(
             contains('extension TaskServiceMcpExtension on TaskService'),
             contains('List<ToolDefinition> get mcpTools'),
             contains('packages/pkg/mcp/tasks/list'),
             contains("description: 'List all tasks.'"),
-          ),
+          )),
         },
       );
     });
@@ -37,9 +64,9 @@ class TaskService {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'items')
 class ItemService {
@@ -49,10 +76,12 @@ class ItemService {
   ) async => {};
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart':
-              contains('packages/pkg/mcp/items/get_item_by_id'),
+          'pkg|lib/service.mcp.dart': decodedMatches(
+            contains('packages/pkg/mcp/items/get_item_by_id'),
+          ),
         },
       );
     });
@@ -62,9 +91,9 @@ class ItemService {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'users')
 class UserService {
@@ -74,10 +103,12 @@ class UserService {
   ) async => {};
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart':
-              contains("StringSchema(description: 'User ID')"),
+          'pkg|lib/service.mcp.dart': decodedMatches(
+            contains("StringSchema(description: 'User ID')"),
+          ),
         },
       );
     });
@@ -87,9 +118,9 @@ class UserService {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'stats')
 class StatsService {
@@ -97,9 +128,12 @@ class StatsService {
   Future<Map<String, dynamic>> summary() async => {};
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart': contains('inputSchema: ObjectSchema()'),
+          'pkg|lib/service.mcp.dart': decodedMatches(
+            contains('inputSchema: ObjectSchema()'),
+          ),
         },
       );
     });
@@ -109,9 +143,9 @@ class StatsService {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'ping')
 class PingService {
@@ -119,9 +153,12 @@ class PingService {
   Future<bool> ping() async => true;
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart': contains('await ping()'),
+          'pkg|lib/service.mcp.dart': decodedMatches(
+            contains('await ping()'),
+          ),
         },
       );
     });
@@ -131,9 +168,9 @@ class PingService {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class Task {
@@ -143,11 +180,13 @@ class Task {
   factory Task.fromJson(Map<String, dynamic> j) => Task(id: j['id'] as String);
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
 import 'models.dart';
 
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'tasks')
 class TaskService {
@@ -157,9 +196,13 @@ class TaskService {
   ) async => Task(id: id);
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart': contains('result.toJson()'),
+          'pkg|lib/models.mcp.dart': anything,
+          'pkg|lib/service.mcp.dart': decodedMatches(
+            contains('result.toJson()'),
+          ),
         },
       );
     });
@@ -169,9 +212,9 @@ class TaskService {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class Task {
@@ -180,11 +223,13 @@ class Task {
   Map<String, dynamic> toJson() => {'id': id};
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
           'pkg|lib/service.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
 import 'models.dart';
 
 part 'service.mcp.dart';
+
+$_stubs
 
 @McpService(path: 'tasks')
 class TaskService {
@@ -192,10 +237,13 @@ class TaskService {
   Future<List<Task>> listTasks() async => [];
 }
 ''',
+          'pkg|lib/service.mcp.dart': "part of 'service.dart';\n",
         },
         outputs: {
-          'pkg|lib/service.mcp.dart':
-              contains('result.map((e) => e.toJson()).toList()'),
+          'pkg|lib/models.mcp.dart': anything,
+          'pkg|lib/service.mcp.dart': decodedMatches(
+            contains('result.map((e) => e.toJson()).toList()'),
+          ),
         },
       );
     });

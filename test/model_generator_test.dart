@@ -3,6 +3,22 @@ import 'package:build_test/build_test.dart';
 import 'package:test/test.dart';
 import 'package:virnavi_ai_agent_mcp_generator/virnavi_ai_agent_mcp_generator.dart';
 
+/// Minimal annotation stubs for the test virtual package.
+/// TypeChecker.typeNamed matches by class name only, so these work
+/// without importing virnavi_ai_agent_mcp.
+const _stubs = '''
+class McpModel { const McpModel(); }
+class McpField {
+  final String? description;
+  final bool? required;
+  const McpField({this.description, this.required});
+}
+class JsonKey {
+  final String? name;
+  const JsonKey({this.name});
+}
+''';
+
 void main() {
   group('McpModelGenerator', () {
     test('generates private schema fn and public accessor for a simple model', () async {
@@ -10,9 +26,9 @@ void main() {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class Task {
@@ -22,9 +38,10 @@ class Task {
   Task({required this.id, required this.title, required this.completed});
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
         },
         outputs: {
-          'pkg|lib/models.mcp.dart': allOf(
+          'pkg|lib/models.mcp.dart': decodedMatches(allOf(
             contains('part of'),
             contains(r'_$TaskToMcpSchema'),
             contains(r'$TaskMcpX'),
@@ -32,7 +49,7 @@ class Task {
             contains("'title': StringSchema()"),
             contains("'completed': BooleanSchema()"),
             contains("required: ['id', 'title', 'completed']"),
-          ),
+          )),
         },
       );
     });
@@ -42,9 +59,9 @@ class Task {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class CreateTaskInput {
@@ -53,13 +70,14 @@ class CreateTaskInput {
   CreateTaskInput({required this.title, this.description});
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
         },
         outputs: {
-          'pkg|lib/models.mcp.dart': allOf(
+          'pkg|lib/models.mcp.dart': decodedMatches(allOf(
             contains("'title': StringSchema()"),
             contains("'description': StringSchema()"),
             contains("required: ['title']"),
-          ),
+          )),
         },
       );
     });
@@ -69,9 +87,9 @@ class CreateTaskInput {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class Profile {
@@ -80,10 +98,12 @@ class Profile {
   Profile({required this.name});
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
         },
         outputs: {
-          'pkg|lib/models.mcp.dart':
-              contains("StringSchema(description: 'Full display name')"),
+          'pkg|lib/models.mcp.dart': decodedMatches(
+            contains("StringSchema(description: 'Full display name')"),
+          ),
         },
       );
     });
@@ -93,9 +113,9 @@ class Profile {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class Stats {
@@ -105,13 +125,14 @@ class Stats {
   Stats({required this.count, required this.ratio, required this.active});
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
         },
         outputs: {
-          'pkg|lib/models.mcp.dart': allOf(
+          'pkg|lib/models.mcp.dart': decodedMatches(allOf(
             contains("'count': IntegerSchema()"),
             contains("'ratio': NumberSchema()"),
             contains("'active': BooleanSchema()"),
-          ),
+          )),
         },
       );
     });
@@ -121,9 +142,9 @@ class Stats {
         mcpBuilder(BuilderOptions.empty),
         {
           'pkg|lib/models.dart': '''
-import 'package:virnavi_ai_agent_mcp/virnavi_ai_agent_mcp.dart';
-
 part 'models.mcp.dart';
+
+$_stubs
 
 @McpModel()
 class Item {
@@ -131,12 +152,13 @@ class Item {
   Item({required this.id});
 }
 ''',
+          'pkg|lib/models.mcp.dart': "part of 'models.dart';\n",
         },
         outputs: {
-          'pkg|lib/models.mcp.dart': allOf(
+          'pkg|lib/models.mcp.dart': decodedMatches(allOf(
             contains(r'class $ItemMcpX'),
             contains(r'static ObjectSchema schema() => _$ItemToMcpSchema()'),
-          ),
+          )),
         },
       );
     });

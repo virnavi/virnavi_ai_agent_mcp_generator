@@ -414,17 +414,18 @@ packages:
   virnavi_ai_agent_mcp:
     dependency: "direct main"
     description:
-      path: "../../mcp"
-      relative: true
-    source: path
-    version: "0.0.1"
+      name: virnavi_ai_agent_mcp
+      sha256: "01b53c72ba692ca42594d39a69053922c348052d675789b6919d8a874e1e30dc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.3"
   virnavi_ai_agent_mcp_generator:
     dependency: "direct dev"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.0.2"
+    version: "0.0.3"
   watcher:
     dependency: transitive
     description:

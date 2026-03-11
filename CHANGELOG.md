@@ -1,3 +1,16 @@
+## 0.0.3
+
+### New features
+
+- **Nested model auto-registration**: when an `@McpModel` class has fields of another `@McpModel` type (or `List<@McpModel>`), the generated `definition` now includes `nestedDefinitions` and `nestedExtractors`. `McpSummary.bind()` registers all nested definitions automatically; the compose layer uses `nestedExtractors` to propagate nested data into `McpResultStore`.
+- **`void` return type**: `Future<void>` tool methods now generate a handler that calls the method and returns `ToolResult.success(null)` without capturing a result.
+
+### Requires
+
+- `virnavi_ai_agent_mcp: ^0.0.3` (adds `McpModelDefinition.nestedDefinitions`, `nestedExtractors`, and `McpSummary.bindViews` stub).
+
+---
+
 ## 0.0.2
 
 ### Bug fixes

@@ -94,6 +94,10 @@ class $ProductMcpX {
     schemaFactory: $ProductMcpX.schema,
     fromJson: Product.fromJson,
     nestedDefinitions: [$DimensionsMcpX.definition],
+    nestedExtractors: {
+      $DimensionsMcpX.mcpModelId: (json) =>
+          (json['dimensions'] as Map?)?.cast<String, dynamic>(),
+    },
   );
 }
 

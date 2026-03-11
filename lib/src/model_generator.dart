@@ -43,21 +43,27 @@ class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
 
     final requiredKeys = <String>[];
     final propertyLines = <String>[];
-    // Nested @McpModel class names found in field types (preserves insertion order,
-    // deduplicates via Set for tracking seen names).
-    final nestedModelClassNames = <String>[];
+    // Nested @McpModel fields: tracks (jsonKey, className) for direct @McpModel
+    // fields (not List items — those can't be extracted by key alone).
+    final nestedModelFields = <({String jsonKey, String className})>[];
     final _seenNested = <String>{};
 
-    void trackNested(DartType type) {
+    // For nestedDefinitions: also include @McpModel types inside List<T>.
+    final nestedModelClassNames = <String>[];
+
+    void trackNested(DartType type, String? jsonKey) {
       if (type is! InterfaceType) return;
       final el = type.element;
-      // List<T> — check item type.
+      // List<T> — register definition but no extractor (items have no single key).
       if (el.name == 'List' && type.typeArguments.isNotEmpty) {
-        trackNested(type.typeArguments.first);
+        trackNested(type.typeArguments.first, null);
         return;
       }
       if (isMcpModel(el) && _seenNested.add(el.name!)) {
         nestedModelClassNames.add(el.name!);
+        if (jsonKey != null) {
+          nestedModelFields.add((jsonKey: jsonKey, className: el.name!));
+        }
       }
     }
 
@@ -111,7 +117,7 @@ class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
       propertyLines.add("      '$keyName': $schema,");
 
       // Track nested @McpModel types from the original field type (not schemaType).
-      trackNested(field.type);
+      trackNested(field.type, keyName);
     }
 
     final className = element.name!;
@@ -151,6 +157,16 @@ class McpModelGenerator extends GeneratorForAnnotation<McpModel> {
         buf.writeln('      ${publicSchemaAccessorName(nested)}.definition,');
       }
       buf.writeln('    ],');
+    }
+    if (nestedModelFields.isNotEmpty) {
+      buf.writeln('    nestedExtractors: {');
+      for (final f in nestedModelFields) {
+        final accessor = publicSchemaAccessorName(f.className);
+        buf.writeln(
+          "      $accessor.mcpModelId: (json) => (json['${_esc(f.jsonKey)}'] as Map?)?.cast<String, dynamic>(),",
+        );
+      }
+      buf.writeln('    },');
     }
     buf.writeln('  );');
     buf.writeln('}');

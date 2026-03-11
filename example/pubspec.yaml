@@ -10,15 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   json_annotation: ^4.9.0
-  virnavi_ai_agent_mcp:
-    path: ../../mcp
+  virnavi_ai_agent_mcp: ^0.0.3
 
 dev_dependencies:
   build_runner: ^2.4.0
   json_serializable: ^6.8.0
   virnavi_ai_agent_mcp_generator:
     path: ../
-
-dependency_overrides:
-  virnavi_ai_agent_mcp:
-    path: ../../mcp

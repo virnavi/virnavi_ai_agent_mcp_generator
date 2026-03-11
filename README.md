@@ -11,8 +11,14 @@ Generates MCP tool definitions, JSON schemas, view helpers, and summary registri
 - `@McpView` → generates a `$WidgetNameMcpView` helper with `definition` and `fromStore()` for reactive UI binding.
 - `@McpSummary` → generates a `$ClassNameMcpSummary` with `bindAll()` and `bindWithViews()` convenience statics that wire up all tools, model definitions, and view definitions in one call.
 - Tool names follow the Spring Boot-style convention: `packages/{package}/mcp/{servicePath}/{toolPath}`.
-- Return type handling: `@McpModel` → `.toJson()`, `List<@McpModel>` → `.map((e) => e.toJson()).toList()`, `@McpModel?` → `?.toJson()`.
+- Return type handling: `@McpModel` → `.toJson()`, `List<@McpModel>` → `.map((e) => e.toJson()).toList()`, `@McpModel?` → `?.toJson()`, `void`/`Future<void>` → `ToolResult.success(null)`.
 - Generated files use `.mcp.dart` extension — no conflicts with `json_serializable` (`.g.dart`).
+- Named parameters are emitted with `name: value` syntax in generated handlers.
+- Enum support: generates `StringSchema(enumValues: [...])` and decodes using `@JsonValue` or `.values.byName()`.
+- `DateTime` maps to `IntegerSchema` (milliseconds since epoch UTC); handler decodes via `DateTime.fromMillisecondsSinceEpoch`.
+- `DateTimeRange` maps to `ObjectSchema` with `{start, end}` integer millisecond fields.
+- `dynamic` maps to `ObjectSchema` with no type constraint; passed through without casting in handlers.
+- **Nested model auto-registration**: when an `@McpModel` field references another `@McpModel` type, the generated `definition` includes a `nestedDefinitions` list. `McpSummary.bind()` registers all nested definitions automatically — no need to list them explicitly in `bindAll`.
 
 ## Getting started
 
@@ -24,7 +30,7 @@ dependencies:
 
 dev_dependencies:
   build_runner: ^2.4.0
-  virnavi_ai_agent_mcp_generator: ^0.0.1
+  virnavi_ai_agent_mcp_generator: ^0.0.2
 ```
 
 ## Usage
@@ -157,6 +163,26 @@ If `@McpTool(path:)` is omitted, the method name is converted to snake_case auto
 | `@McpParam(description:, required:)` | parameter | Describes an individual tool parameter |
 | `@McpView(modelType:)` | widget class | Generates a view helper with a `definition` getter |
 | `@McpSummary()` | class | Generates `bindAll()` and `bindWithViews()` for the entire package |
+
+## Type mapping
+
+| Dart type | Generated schema | Handler decoding |
+|---|---|---|
+| `String` | `StringSchema` | `args['x'] as String` |
+| `int` | `IntegerSchema` | `args['x'] as int` |
+| `double` / `num` | `NumberSchema` | `args['x'] as double` |
+| `bool` | `BooleanSchema` | `args['x'] as bool` |
+| `List<T>` | `ArraySchema(items: <schema for T>)` | `args['x'] as List` |
+| `Map` | `ObjectSchema` | `args['x'] as Map` |
+| `DateTime` | `IntegerSchema` (ms since epoch UTC) | `DateTime.fromMillisecondsSinceEpoch(args['x'] as int, isUtc: true)` |
+| `DateTimeRange` | `ObjectSchema({start, end}: IntegerSchema)` | manual (return type only) |
+| `enum` | `StringSchema(enumValues: [...])` | `const {'val': Enum.val}[args['x'] as String]!` or `.values.byName()` |
+| `@McpModel` class | `$ClassMcpX.schema()` | `Class.fromJson(args)` |
+| `dynamic` | `ObjectSchema` | `args['x']` (no cast) |
+
+Nullable variants of all types append a null-check guard in the handler (`args['x'] == null ? null : ...` or `as Type?`).
+
+Enum values use `@JsonValue` when annotated (via `json_annotation`), falling back to the Dart field name.
 
 ## License
 

@@ -140,7 +140,10 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
       if (ann != null) {
         final r = ConstantReader(ann);
         description = r.read('description').stringValue;
-        isRequired = r.peek('required')?.boolValue ?? isRequired;
+        isRequired = r.peek('required')?.boolValue ??
+            (isRequired && !param.hasDefaultValue);
+      } else {
+        isRequired = isRequired && !param.hasDefaultValue;
       }
 
       final schema = schemaExprForType(param.type, description);
@@ -171,7 +174,10 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
       if (param.type is InterfaceType) {
         final classEl = (param.type as InterfaceType).element;
         if (isMcpModel(classEl)) {
-          callExpr = '${method.name!}(${classEl.name!}.fromJson(args))';
+          final argExpr = '${classEl.name!}.fromJson(args)';
+          callExpr = param.isNamed
+              ? '${method.name!}(${param.name!}: $argExpr)'
+              : '${method.name!}($argExpr)';
         } else {
           callExpr = '${method.name!}(${_castArg(param)})';
         }
@@ -192,6 +198,11 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
         method.returnType is InterfaceType &&
         (method.returnType as InterfaceType).typeArguments.isNotEmpty) {
       resultType = (method.returnType as InterfaceType).typeArguments.first;
+    }
+
+    // void return → call method and return success(null).
+    if (resultType is VoidType) {
+      return '$awaitExpr;\n        return ToolResult.success(null);';
     }
 
     final isNullable = resultType.nullabilitySuffix == NullabilitySuffix.question;
@@ -221,10 +232,37 @@ class McpServiceGenerator extends GeneratorForAnnotation<McpService> {
 
   String _castArg(FormalParameterElement param) {
     final nullable = param.type.nullabilitySuffix == NullabilitySuffix.question;
+    final prefix = param.isNamed ? '${param.name!}: ' : '';
+    final key = param.name!;
+
+    // dynamic → pass through without cast.
+    if (param.type is DynamicType) {
+      return "$prefix args['$key']";
+    }
+
+    if (param.type is InterfaceType) {
+      final el = (param.type as InterfaceType).element;
+
+      // Enum → decode from JSON value (respects @JsonValue).
+      if (el is EnumElement) {
+        final typeName = castTypeName(param.type);
+        return '$prefix${enumCastExpr(el, typeName, key, nullable)}';
+      }
+
+      // DateTime → convert from milliseconds since epoch.
+      if (el.name == 'DateTime') {
+        if (nullable) {
+          return "$prefix(args['$key'] == null ? null : DateTime.fromMillisecondsSinceEpoch(args['$key'] as int, isUtc: true))";
+        }
+        return "${prefix}DateTime.fromMillisecondsSinceEpoch(args['$key'] as int, isUtc: true)";
+      }
+    }
+
     final typeName = castTypeName(param.type);
-    return nullable
-        ? "args['${param.name!}'] as $typeName?"
-        : "args['${param.name!}'] as $typeName";
+    final valueExpr = nullable
+        ? "args['$key'] as $typeName?"
+        : "args['$key'] as $typeName";
+    return '$prefix$valueExpr';
   }
 
   String _esc(String s) => s.replaceAll("'", "\\'");

@@ -1,6 +1,6 @@
 name: virnavi_ai_agent_mcp_generator
 description: "Build-time code generator for virnavi_ai_agent_mcp. Generates MCP schemas and tool extensions from @McpModel and @McpService annotations."
-version: 0.0.1
+version: 0.0.2
 repository: https://github.com/virnavi/virnavi_ai_agent_mcp_generator
 issue_tracker: https://github.com/virnavi/virnavi_ai_agent_mcp_generator/issues
 

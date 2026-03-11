@@ -1,0 +1,24 @@
+name: virnavi_ai_agent_mcp_generator_example
+description: Example demonstrating all features of virnavi_ai_agent_mcp_generator.
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  json_annotation: ^4.9.0
+  virnavi_ai_agent_mcp:
+    path: ../../mcp
+
+dev_dependencies:
+  build_runner: ^2.4.0
+  json_serializable: ^6.8.0
+  virnavi_ai_agent_mcp_generator:
+    path: ../
+
+dependency_overrides:
+  virnavi_ai_agent_mcp:
+    path: ../../mcp

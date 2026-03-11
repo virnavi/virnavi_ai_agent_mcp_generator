@@ -39,7 +39,9 @@ class McpSummaryGenerator extends GeneratorForAnnotation<McpSummary> {
     final packageName = buildStep.inputId.package;
 
     final toolNames = <String>{};
-    final modelClassNames = <String>[];   // class name → accessor name
+    // Records both the Dart class name (for accessor reference) and the
+    // effective model ID name (from @McpModel(name:) when present).
+    final modelEntries = <({String className, String modelName})>[];
     final viewWidgetClassNames = <String>[];  // widget class names with @McpView
 
     // Scan all lib/**.dart files in this package (skip generated files).
@@ -56,9 +58,13 @@ class McpSummaryGenerator extends GeneratorForAnnotation<McpSummary> {
 
       final reader = LibraryReader(lib);
       for (final el in reader.classes) {
-        // @McpModel — track class name for definition references
+        // @McpModel — track class name + effective model name (@McpModel(name:))
         if (_mcpModelCheckerSum.hasAnnotationOf(el)) {
-          modelClassNames.add(el.name!);
+          final ann = _mcpModelCheckerSum.firstAnnotationOfExact(el);
+          final modelName = ann != null
+              ? ConstantReader(ann).peek('name')?.stringValue ?? el.name!
+              : el.name!;
+          modelEntries.add((className: el.name!, modelName: modelName));
         }
 
         // @McpService → collect all @McpTool names
@@ -88,7 +94,7 @@ class McpSummaryGenerator extends GeneratorForAnnotation<McpSummary> {
     }
 
     // Derive model IDs and view model IDs from scanned names.
-    final modelIds = modelClassNames.map((n) => '$packageName/$n').toSet();
+    final modelIds = modelEntries.map((e) => '$packageName/${e.modelName}').toSet();
     final viewModelIds = <String>{};
     // Re-scan to get view model IDs (needed for the const summary).
     await for (final asset in buildStep.findAssets(Glob('lib/**.dart'))) {
@@ -145,13 +151,13 @@ class McpSummaryGenerator extends GeneratorForAnnotation<McpSummary> {
     // bindAll — tools + model definitions
     buf.writeln('  static McpSummary bindAll(List<ToolDefinition> tools) =>');
     buf.writeln('      summary.bind(tools, models: [');
-    for (final name in modelClassNames) {
-      buf.writeln('        ${publicSchemaAccessorName(name)}.definition,');
+    for (final entry in modelEntries) {
+      buf.writeln('        ${publicSchemaAccessorName(entry.className)}.definition,');
     }
     buf.writeln('      ]);');
     buf.writeln('');
 
-    // bindWithViews — tools + models + view definitions (requires compose imports)
+    // bindWithViews — tools + models + view definitions (compose layer picks them up)
     buf.writeln(
         '  static McpSummary bindWithViews(List<ToolDefinition> tools) =>');
     buf.writeln('      bindAll(tools).bindViews([');
